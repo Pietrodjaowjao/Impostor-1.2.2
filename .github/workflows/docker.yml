@@ -1,70 +1,57 @@
-name: Docker
+name: CI
 
 on:
   push:
-    branches: dev
     paths:
-      - 'src/Impostor.Server/**'
-      - 'src/Impostor.Shared/**'
+      - '.github/workflows/ci.yml'
+      - 'src/**/**'
       - '.gitmodules'
-      - '.github/workflows/docker.yml'
-      - 'Dockerfile'
-    tags:
-      - 'v*.*.*'
+      - 'build.cake'
   pull_request:
     paths:
-      - 'src/Impostor.Server/**'
-      - 'src/Impostor.Shared/**'
+      - '.github/workflows/ci.yml'
+      - 'src/**/**'
       - '.gitmodules'
-      - '.github/workflows/docker.yml'
-      - 'Dockerfile'
+      - 'build.cake'
 
 jobs:
-  push_to_registry:
-    name: Push Docker image
+  build:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           submodules: true
-      - name: Prepare
-        id: prep
+
+      - uses: actions/cache@v3
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v2
+        with:
+          dotnet-version: 7.x
+
+      - name: Run the Cake script
+        uses: cake-build/cake-action@v1
+        with:
+          verbosity: Diagnostic
+
+      - uses: softprops/action-gh-release@v1
+        if: github.ref_type == 'tag'
+        with:
+          draft: true
+          files: |
+            ./build/*.zip
+            ./build/*.tar.gz
+            ./build/*.nupkg
+            ./build/*.snupkg
+
+      - name: Push NuGet package
+        if: github.ref_type == 'tag'
         run: |
-          DOCKER_IMAGE=aeonlucid/impostor
-          VERSION=noop
-          if [[ $GITHUB_REF == refs/tags/* ]]; then
-            VERSION=${GITHUB_REF#refs/tags/}
-          elif [[ $GITHUB_REF == refs/heads/* ]]; then
-            VERSION=$(echo ${GITHUB_REF#refs/heads/} | sed -r 's#/+#-#g')
-            if [ "${{ github.event.repository.default_branch }}" = "dev" ]; then
-              VERSION=nightly
-            fi
-          elif [[ $GITHUB_REF == refs/pull/* ]]; then
-            VERSION=pr-${{ github.event.number }}
-          fi
-          TAGS="${DOCKER_IMAGE}:${VERSION}"
-          if [[ $VERSION =~ ^v[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-            TAGS="$TAGS,${DOCKER_IMAGE}:latest"
-          fi
-          echo ::set-output name=version::${VERSION}
-          echo ::set-output name=tags::${TAGS}
-          echo ::set-output name=created::$(date -u +'%Y-%m-%dT%H:%M:%SZ')
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v1
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
-      - name: Login to DockerHub
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v1
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Build and push
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          file: ./Dockerfile
-          platforms: linux/amd64,linux/arm/v7,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
-          tags: ${{ steps.prep.outputs.tags }}
+          dotnet nuget push ./build/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_IMPOSTOR }}
