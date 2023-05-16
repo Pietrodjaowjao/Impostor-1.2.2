@@ -3,7 +3,7 @@
 [![Discord](https://img.shields.io/badge/Discord-chat-blue?style=flat-square)](https://discord.gg/Mk3w6Tb)
 [![AppVeyor](https://img.shields.io/appveyor/build/Impostor/Impostor/dev?style=flat-square)](https://ci.appveyor.com/project/Impostor/Impostor/branch/dev)
 
-Impostor is one of the first **Among Us** private servers, written in C#. 
+Impostor is one of the first **Among Us** private servers, written inC#. 
 
 We support Steam, Itch, Android and iOS. The latest version supported is `2020.9.22`, the `dev` build currently supports `2020.11.17`.
 
