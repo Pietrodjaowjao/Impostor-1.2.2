@@ -13,6 +13,12 @@ on:
       - 'src/**/**'
       - '.gitmodules'
       - 'build.cake'
+  workflow_dispatch: # Add workflow_dispatch event trigger
+    inputs:
+      trigger-rebuild:
+        description: 'Trigger a manual rebuild'
+        default: 'false'
+        required: false
 
 jobs:
   build:
@@ -54,4 +60,4 @@ jobs:
       - name: Push NuGet package
         if: github.ref_type == 'tag'
         run: |
-          dotnet nuget push ./build/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.NUGET_IMPOSTOR }}
+          dotnet nuget push ./build/*.nupkg --source https://api.nuget.org/v3/index.
